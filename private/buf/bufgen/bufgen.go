@@ -84,7 +84,7 @@ type Provider interface {
 	// GetConfig gets the Config for the YAML data at ExternalConfigFilePath.
 	//
 	// If the data is of length 0, returns the default config.
-	GetConfig(ctx context.Context, readBucket storage.ReadBucket) (*Config, error)
+	GetConfig(ctx context.Context, readBucket storage.ReadBucket, env map[string]string) (*Config, error)
 }
 
 // NewProvider returns a new Provider.
@@ -210,6 +210,13 @@ type ReadConfigOption func(*readConfigOptions)
 func ReadConfigWithOverride(override string) ReadConfigOption {
 	return func(readConfigOptions *readConfigOptions) {
 		readConfigOptions.override = override
+	}
+}
+
+// ReadConfigWithEnvironment sets the environment variables available when reading the config.
+func ReadConfigWithEnvironment(env map[string]string) ReadConfigOption {
+	return func(readConfigOptions *readConfigOptions) {
+		readConfigOptions.env = env
 	}
 }
 

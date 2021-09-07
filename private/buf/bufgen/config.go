@@ -26,6 +26,7 @@ import (
 	"github.com/bufbuild/buf/private/pkg/encoding"
 	"github.com/bufbuild/buf/private/pkg/normalpath"
 	"github.com/bufbuild/buf/private/pkg/storage"
+	"github.com/bufbuild/buf/private/pkg/text"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
@@ -39,20 +40,24 @@ func readConfig(
 	for _, option := range options {
 		option(readConfigOptions)
 	}
+	env := readConfigOptions.env
+	if env == nil {
+		env = map[string]string{}
+	}
 	if override := readConfigOptions.override; override != "" {
 		switch filepath.Ext(override) {
 		case ".json":
-			return getConfigJSONFile(override)
+			return getConfigJSONFile(override, env)
 		case ".yaml", ".yml":
-			return getConfigYAMLFile(override)
+			return getConfigYAMLFile(override, env)
 		default:
-			return getConfigJSONOrYAMLData(override)
+			return getConfigJSONOrYAMLData(override, env)
 		}
 	}
-	return provider.GetConfig(ctx, readBucket)
+	return provider.GetConfig(ctx, readBucket, env)
 }
 
-func getConfigJSONFile(file string) (*Config, error) {
+func getConfigJSONFile(file string, env map[string]string) (*Config, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("could not read file %s: %v", file, err)
@@ -62,10 +67,11 @@ func getConfigJSONFile(file string) (*Config, error) {
 		encoding.UnmarshalJSONStrict,
 		data,
 		file,
+		env,
 	)
 }
 
-func getConfigYAMLFile(file string) (*Config, error) {
+func getConfigYAMLFile(file string, env map[string]string) (*Config, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("could not read file %s: %v", file, err)
@@ -75,15 +81,17 @@ func getConfigYAMLFile(file string) (*Config, error) {
 		encoding.UnmarshalYAMLStrict,
 		data,
 		file,
+		env,
 	)
 }
 
-func getConfigJSONOrYAMLData(data string) (*Config, error) {
+func getConfigJSONOrYAMLData(data string, env map[string]string) (*Config, error) {
 	return getConfig(
 		encoding.UnmarshalJSONOrYAMLNonStrict,
 		encoding.UnmarshalJSONOrYAMLStrict,
 		[]byte(data),
 		"Generate configuration data",
+		env,
 	)
 }
 
@@ -92,8 +100,16 @@ func getConfig(
 	unmarshalStrict func([]byte, interface{}) error,
 	data []byte,
 	id string,
+	env map[string]string,
 ) (*Config, error) {
 	var externalConfigVersion ExternalConfigVersion
+	if env == nil {
+		env = map[string]string{}
+	}
+	data, err := text.Expand(data, env)
+	if err != nil {
+		return nil, err
+	}
 	if err := unmarshalNonStrict(data, &externalConfigVersion); err != nil {
 		return nil, err
 	}
@@ -381,6 +397,7 @@ func optimizeModePtr(value descriptorpb.FileOptions_OptimizeMode) *descriptorpb.
 
 type readConfigOptions struct {
 	override string
+	env      map[string]string
 }
 
 func newReadConfigOptions() *readConfigOptions {

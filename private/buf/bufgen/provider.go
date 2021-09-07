@@ -35,7 +35,7 @@ func newProvider(logger *zap.Logger) *provider {
 	}
 }
 
-func (p *provider) GetConfig(ctx context.Context, readBucket storage.ReadBucket) (_ *Config, retErr error) {
+func (p *provider) GetConfig(ctx context.Context, readBucket storage.ReadBucket, env map[string]string) (_ *Config, retErr error) {
 	ctx, span := trace.StartSpan(ctx, "get_config")
 	defer span.End()
 
@@ -57,5 +57,6 @@ func (p *provider) GetConfig(ctx context.Context, readBucket storage.ReadBucket)
 		encoding.UnmarshalYAMLStrict,
 		data,
 		`File "`+readObjectCloser.ExternalPath()+`"`,
+		env,
 	)
 }

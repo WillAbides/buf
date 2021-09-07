@@ -1,17 +1,17 @@
 version: v1
 managed:
-  enabled: true
+  enabled: ${TRUTH|false}
   cc_enable_arenas: true
   java_multiple_files: true
   java_string_check_utf8: true
   java_package_prefix: org
-  optimize_for: CODE_SIZE
+  optimize_for: ${OPTIMIZE|SPEED}
   override:
     JAVA_PACKAGE:
-      a.proto: override
+      a.proto: ${A_PROTO_OVERRIDE}
 plugins:
   - name: go
     out: gen/go
     opt: plugins=grpc
-    path: /path/to/foo
+    path: ${MISSING_VAR|/path/to/foo}
     strategy: all

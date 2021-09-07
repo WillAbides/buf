@@ -17,6 +17,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bufbuild/buf/private/buf/bufcli"
 	"github.com/bufbuild/buf/private/buf/buffetch"
@@ -38,6 +39,7 @@ const (
 	errorFormatFlagName         = "error-format"
 	configFlagName              = "config"
 	pathsFlagName               = "path"
+	envName                     = "env"
 	includeImportsFlagName      = "include-imports"
 
 	// deprecated
@@ -192,6 +194,7 @@ type flags struct {
 	Config         string
 	Paths          []string
 	IncludeImports bool
+	Env            []string
 
 	// deprecated
 	Input string
@@ -241,6 +244,12 @@ func (f *flags) Bind(flagSet *pflag.FlagSet) {
 		configFlagName,
 		"",
 		`The config file or data to use.`,
+	)
+	flagSet.StringSliceVar(
+		&f.Env,
+		envName,
+		nil,
+		"Environment variables available to expose to go.gen.yaml",
 	)
 
 	// deprecated
@@ -315,11 +324,40 @@ func run(
 	if err != nil {
 		return err
 	}
+
+	envValues := make(map[string]string, len(flags.Env))
+	for _, envSpec := range flags.Env {
+		envSpec = strings.TrimSpace(envSpec)
+		if envSpec == "" {
+			continue
+		}
+		envParts := strings.Split(envSpec, "=")
+		switch len(envParts) {
+		case 1:
+			if _, ok := envValues[envSpec]; ok {
+				return fmt.Errorf("duplicate environment specifications for: %s", envSpec)
+			}
+			envValues[envSpec] = container.Env(envSpec)
+		case 2:
+			key := strings.TrimSpace(envParts[0])
+			if key == "" {
+				return fmt.Errorf("invalid environment specification: %s", envSpec)
+			}
+			if _, ok := envValues[key]; ok {
+				return fmt.Errorf("duplicate environment specifications for: %s", key)
+			}
+			envValues[key] = strings.TrimSpace(envParts[1])
+		default:
+			return fmt.Errorf("invalid environment specification: %s", envSpec)
+		}
+	}
+
 	genConfig, err := bufgen.ReadConfig(
 		ctx,
 		bufgen.NewProvider(logger),
 		readWriteBucket,
 		bufgen.ReadConfigWithOverride(flags.Template),
+		bufgen.ReadConfigWithEnvironment(envValues),
 	)
 	if err != nil {
 		return err

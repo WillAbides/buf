@@ -50,7 +50,7 @@ func TestProviderError(t *testing.T) {
 	require.NoError(t, err)
 
 	provider := NewProvider(zap.NewNop())
-	_, err = provider.GetConfig(context.Background(), readWriteBucket)
+	_, err = provider.GetConfig(context.Background(), readWriteBucket, nil)
 	require.True(t, storage.IsNotExist(err))
 }
 
@@ -60,7 +60,7 @@ func testProvider(t *testing.T, version string) {
 	require.NoError(t, err)
 
 	provider := NewProvider(zap.NewNop())
-	actual, err := provider.GetConfig(context.Background(), readWriteBucket)
+	actual, err := provider.GetConfig(context.Background(), readWriteBucket, nil)
 	require.NoError(t, err)
 
 	emptyBucket, err := storagemem.NewReadBucket(nil)
